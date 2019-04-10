@@ -1,0 +1,12 @@
+ CTC compliant images
+4DLF - individual SAIs
+4DLF_PVS - spiral scan SAI rep
+4DLF_MI - micro-image rep
+
+RGB444@10bpp
+YUV444@10bpp
+YUV420@8bpp
+
+4D LF res: 625x434x15x15x4 @ 10bpp
+4DLF_PVS res: 625x434x169 / 626x434x169 (YUV 420 8bpp)
+4DLF_MI: 8125x5642 / 8126x5642 (YUV 420 8 bpp)
