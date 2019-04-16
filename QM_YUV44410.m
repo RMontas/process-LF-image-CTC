@@ -13,15 +13,17 @@
             %YUV_PSNR 
             %Y_SSIM      
 
-function [Y_PSNR YUV_PSNR Y_SSIM]=QM(ref,rec,n_rgb,n_yuv)
+function [Y_PSNR YUV_PSNR Y_SSIM]=QM_YUV44410(ref,rec,n_rgb,n_yuv)
 
     %convert rgb to double
     ref_double = double(ref)./(2^n_rgb-1);
-    rec_double = double(rec)./(2^n_rgb-1);
+    %rec_double = double(rec)./(2^n_rgb-1);
 
     %convert double rgb images to n_yuv bits ycbcr (4:4:4)
     ref_YCbCr_444=rgb2ycbcrn(ref_double,n_yuv);
-    rec_YCbCr_444=rgb2ycbcrn(rec_double,n_yuv);
+    %rec_YCbCr_444=rgb2ycbcrn(rec_double,n_yuv);
+    rec_YCbCr_444=rec;
+    
     
     Y1 = ref_YCbCr_444(:,:,1);
     U1 = ref_YCbCr_444(:,:,2);
