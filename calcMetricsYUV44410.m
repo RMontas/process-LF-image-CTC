@@ -40,13 +40,13 @@ for j = 1:mi_size
     end
 end
 
-fileID = fopen( strcat(output_folder,'avg_psnr_y.txt'), 'a' );
+fileID = fopen( strcat(output_folder,'_avg_psnr_y.txt'), 'a' );
 fprintf(fileID, "%f\n",mean(Y_PSNR(:)));
 fclose(fileID);
-fileID = fopen( strcat(output_folder,'avg_psnr_yuv.txt'), 'a' );
+fileID = fopen( strcat(output_folder,'_avg_psnr_yuv.txt'), 'a' );
 fprintf(fileID, "%f\n",mean(YUV_PSNR(:)));
 fclose(fileID);
-fileID = fopen( strcat(output_folder,'avg_psnr_yssim.txt'), 'a' );
+fileID = fopen( strcat(output_folder,'_avg_psnr_yssim.txt'), 'a' );
 fprintf(fileID, "%f\n",mean(Y_SSIM(:)));
 fclose(fileID);
 end

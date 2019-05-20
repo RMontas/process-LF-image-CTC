@@ -10,7 +10,7 @@ for j = 1:mi_size
 end
 
 % process REC
-if representation_type == 4 % 4DLF ind SAIs
+if representation_type == 4 % 4DLF  SAIs
     for j = 1:mi_size
         for i = 1:mi_size
             rec_4DLF_VIEWS(j,i,:,:,:) = bitshift(imread(strcat(REC,sprintf('%03d_%03d.ppm',i,j))),-6);
@@ -30,7 +30,7 @@ fclose(fileID);
 fileID = fopen( strcat(output_folder,'avg_psnr_yuv.txt'), 'a' );
 fprintf(fileID, "%f\n",mean(YUV_PSNR(:)));
 fclose(fileID);
-fileID = fopen( strcat(output_folder,'avg_psnr_yssim.txt'), 'a' );
+fileID = fopen( strcat(output_folder,'avg_yssim.txt'), 'a' );
 fprintf(fileID, "%f\n",mean(Y_SSIM(:)));
 fclose(fileID);
 end
