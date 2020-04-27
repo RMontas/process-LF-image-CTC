@@ -9,6 +9,30 @@ for j = 1:mi_size
 end
 
 % process REC
+if representation_type == 0 % LL
+    f = fopen(REC,'r');
+    Y = fread(f, [W H], 'uint8');
+    U = fread(f, [W/2 H/2], 'uint8');
+    V = fread(f, [W/2 H/2], 'uint8');
+    img_LL{1}=Y';
+    img_LL{2}=U';
+    img_LL{3}=V';
+    I = upsample(img_LL); % to YUV444 8bit
+    I = uint16(I).*4; % to YUV444 10bit
+    [img_LL_rgb] = ycbcr2rgbn(double(I)./(2^10-1).*(2^16-1),16);  % to RGB 444 10bit 
+    run('LFToolbox0.4/LFMatlabPathSetup')
+    LFMatlabPathSetup;
+    LFUtilProcessWhiteImages;
+    imageName = extractAfter(REF,"RGB44410/"); imageName=extractBefore(imageName,"/");
+    [~, LFCol] = YUVLenslet2LF( double(img_LL_rgb), sprintf('RAW/%s__Decoded.mat',imageName)); %16bit
+    rec_4DLF_VIEWS = uint16(LFCol(2:14,2:14,:,:,:)); %16bit
+    for j = 1:mi_size
+        for i = 1:mi_size
+             rec_4DLF_VIEWS(j,i,:,:,:) = rgb2ycbcrn(double(squeeze(rec_4DLF_VIEWS(j,i,:,:,:)))/(2^16-1),10); 
+        end
+    end
+end
+
 if representation_type == 1 % 4DLF-MI
     f = fopen(REC,'r');
     YUV{1} = (fread(f, [W H], 'uint8'))';
@@ -54,6 +78,9 @@ for j = 1:mi_size
         [Y_PSNR(j,i) YUV_PSNR(j,i) Y_SSIM(j,i)]=QM_YUV44410(squeeze(ref_4DLF_VIEWS(j,i,:,:,:)),squeeze(rec_4DLF_VIEWS(j,i,:,:,:)),16,10);
     end
 end
+
+mean(YUV_PSNR(:))
+mean(Y_PSNR(:))
 
 fileID = fopen( strcat(output_folder,'_avg_psnr_y.txt'), 'a' );
 fprintf(fileID, "%f\n",mean(Y_PSNR(:)));

@@ -13,23 +13,29 @@ YUV4208 = 1;
 %% representation type flag
 REPSAI = 0; %% PPM format
 REPPVSSPIRAL = 0; %% YUV
-REPMI = 1; %% YUV
+REPMI = 0; %% YUV
+REPLL = 1; %% Lenslet
 
 mkdir('SAI')
 mkdir('PVSSPIRAL')
 mkdir('MI')
+mkdir('LL')
 
 mkdir('SAI/RGB44410')
 mkdir('PVSSPIRAL/RGB44410')
 mkdir('MI/RGB44410')
+mkdir('LL/RGB44410')
 
 mkdir('SAI/YUV44410')
 mkdir('PVSSPIRAL/YUV44410')
 mkdir('MI/YUV44410')
+mkdir('LL/YUV44410')
 
 mkdir('SAI/YUV4208')
 mkdir('PVSSPIRAL/YUV4208')
 mkdir('MI/YUV4208')
+mkdir('LL/YUV4208')
+
 
 run('LFToolbox0.4/LFMatlabPathSetup')
 LFMatlabPathSetup;
@@ -44,6 +50,11 @@ for i = 1:12
         movefile('tmplenslet.ppm',sprintf('RAW/lensletI%02d.ppm',i));
     end
     [~, LFCol] = PPMLenslet2LF( sprintf('RAW/lensletI%02d.ppm',i), sprintf('RAW/I%02d__Decoded.mat',i));
+    LL = imread(sprintf('RAW/lensletI%02d.ppm',i));
+    %%
+    if REPLL == 1
+        genLL(i, double(LL), RGB44410, YUV44410, YUV4208);
+    end
     %%
     if REPSAI == 1
         genSAI(i, LFCol, compareGeneratedWithOriginals, RGB44410, YUV44410, YUV4208);
@@ -56,6 +67,47 @@ for i = 1:12
     if REPMI == 1
         genMI(i, LFCol, RGB44410, YUV44410, YUV4208);
     end
+end
+
+function genLL(i, LF, RGB44410, YUV44410, YUV4208)
+destinFolderRGB44410 = sprintf('LL/RGB44410');
+destinFolderYUV44410 = sprintf('LL/YUV44410');
+destinFolderYUV4208 = sprintf('LL/YUV4208');
+if RGB44410 == 1; mkdir(destinFolderRGB44410); end
+if YUV44410 == 1; mkdir(destinFolderYUV44410); end
+if YUV4208 == 1; mkdir(destinFolderYUV4208); end
+
+LF = LF./(2^16 - 1).*(2^10 -1); %scaling to 10-bit precision
+%clipping
+LF(LF<0) = 0;
+LF(LF>1023) = 1023;
+%rounding to integer
+LF = double(uint16(LF));
+%going back to uint16
+if RGB44410 == 1
+    I = LF./(2^10 -1) .*(2^16-1);
+    I = uint16(I);
+    fileID = fopen( sprintf('%s/I%02d.rgb',destinFolderRGB44410,i), 'w' );
+    fwrite(fileID, permute(I, [2 1 3]), 'uint16');
+    fclose(fileID);
+    clear I;
+end
+if YUV44410 == 1
+    I = rgb2ycbcrn(double(LF) / (2^10-1),10);
+    fileID = fopen( sprintf('%s/I%02d.yuv',destinFolderYUV44410,i), 'w' );
+    fwrite(fileID, permute(I, [2 1 3]), 'uint16');
+    fclose(fileID);
+    clear I;
+end
+if YUV4208 == 1
+    I = rgb2ycbcrn(double(LF) / (2^10-1),8);
+    I = downsampleChroma(I);
+    fileID = fopen( sprintf('%s/I%02d.yuv',destinFolderYUV4208,i), 'w' );
+    fwrite(fileID, I{1}', 'uint8'); fwrite(fileID, I{2}', 'uint8'); fwrite(fileID, I{3}', 'uint8');
+    fclose(fileID);
+    clear I;
+
+end
 end
 
 function genSAI(i, LF, compareGeneratedWithOriginals, RGB44410, YUV44410, YUV4208)
