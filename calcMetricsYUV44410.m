@@ -3,8 +3,9 @@
 function [ ] = calcMetricsYUV4410( REF, REC, representation_type, H, W, mi_size, output_folder )
 
 % process REF
-for j = 1:mi_size
-    for i = 1:mi_size
+mi_size_ref = 13;
+for j = 1:mi_size_ref
+    for i = 1:mi_size_ref
         ref_4DLF_VIEWS(j,i,:,:,:) = double(imread(strcat(REF,sprintf('%03d_%03d.ppm',i,j)))) ;
     end
 end
@@ -102,6 +103,41 @@ if representation_type == 4 % 4DLF ind SAIs
             rec_4DLF_VIEWS(j,i,:,:,:) = imread(strcat(REC,sprintf('%03d_%03d.ppm',i,j))) ;
         end
     end
+end
+
+if representation_type == 5 % 4DLF-PVS SERPENTINE
+    serpentine_scaning_order = zeros(mi_size, mi_size);
+    %gen serpentine scan order
+    xx = 0;
+    yy = 0;
+    lastdir = 1; % 0 L<---R 1 L--->R
+    currdir = 1;
+    for j = 1:mi_size*mi_size
+        yy = ceil((j)/mi_size);
+        currdir = mod(yy, 2);
+        if lastdir == currdir
+            if currdir == 1
+                xx = xx + 1; % 1 odd - add
+            else
+                xx = xx - 1; % 0 even - subtract
+            end
+        end
+        lastdir = currdir;
+        serpentine_scaning_order(yy,xx)=j;
+    end
+    f = fopen(REC,'r');
+    for j = 1:mi_size
+        for i = 1:mi_size
+            [ypos, xpos] = find(serpentine_scaning_order == (j-1)*mi_size + i);
+            Y = fread(f, [W H], 'uint16');
+            U = fread(f, [W H], 'uint16');
+            V = fread(f, [W H], 'uint16');
+            rec_4DLF_VIEWS(ypos,xpos,:,:,1) = uint16(Y');
+            rec_4DLF_VIEWS(ypos,xpos,:,:,2) = uint16(U');
+            rec_4DLF_VIEWS(ypos,xpos,:,:,3) = uint16(V');
+        end
+    end
+    fclose(f);
 end
 
 %max(max(max(max(max(ref_4DLF_VIEWS)))))

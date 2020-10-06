@@ -7,14 +7,17 @@ close all
 %% config flags
 compareGeneratedWithOriginals = 0;
 %% color flags
-RGB44410 = 1;
+RGB44410 = 0;
 YUV44410 = 1;
-YUV4208 = 1;
+YUV4208 = 0;
 %% representation type flag
 REPSAI = 0; %% PPM format
 REPPVSSPIRAL = 0; %% YUV
 REPMI = 0; %% YUV
-REPLL = 1; %% Lenslet
+REPLL = 0; %% Lenslet
+REPPVSSERPENTINE = 0; %% YUV
+REPPVSSERPENTINE_N = 1;
+N_MIs = 9;
 
 mkdir('SAI')
 mkdir('PVSSPIRAL')
@@ -35,6 +38,11 @@ mkdir('SAI/YUV4208')
 mkdir('PVSSPIRAL/YUV4208')
 mkdir('MI/YUV4208')
 mkdir('LL/YUV4208')
+
+mkdir('PVSSERPENTINE')
+mkdir('PVSSERPENTINE/YUV44410')
+mkdir('PVSSERPENTINE/RGB44410') % not implemented
+mkdir('PVSSERPENTINE/YUV4208') % not implemented
 
 
 run('LFToolbox0.4/LFMatlabPathSetup')
@@ -62,6 +70,16 @@ for i = 1:12
     %%
     if REPPVSSPIRAL == 1
         genPVSSPIRAL(i, LFCol, RGB44410, YUV44410, YUV4208);
+    end
+    if REPPVSSERPENTINE == 1
+        genPVSSERPENTINE(i, LFCol, RGB44410, YUV44410, YUV4208);
+    end
+    if REPPVSSERPENTINE_N == 1
+        mkdir(sprintf('PVSSERPENTINE_N%d',N_MIs));
+        mkdir(sprintf('PVSSERPENTINE_N%d/YUV44410',N_MIs));
+        mkdir(sprintf('PVSSERPENTINE_N%d/YUV4208',N_MIs));
+        mkdir(sprintf('PVSSERPENTINE_N%d/RGB44410',N_MIs));
+        genPVSSERPENTINE_N(i, LFCol, RGB44410, YUV44410, YUV4208, N_MIs);
     end
     %%
     if REPMI == 1
@@ -303,6 +321,159 @@ end
 
 end
 
+function genPVSSERPENTINE(i, LF, RGB44410, YUV44410, YUV4208)
+destinFolderRGB44410 = sprintf('PVSSERPENTINE/RGB44410/I%02d',i);
+destinFolderYUV44410 = sprintf('PVSSERPENTINE/YUV44410/I%02d',i);
+destinFolderYUV4208 = sprintf('PVSSERPENTINE/YUV4208/I%02d',i);
+if RGB44410 == 1; mkdir(destinFolderRGB44410); end
+if YUV44410 == 1; mkdir(destinFolderYUV44410); end
+if YUV4208 == 1; mkdir(destinFolderYUV4208); end
+
+numMIs=13;
+res=size(LF);
+H=res(3);
+W=res(4);
+
+% only 13x13 in this rep
+PVS_RGB44410 = zeros(H, W, 3,numMIs * numMIs, 'uint16');
+PVS_YUV44410 = zeros(H, W, 3,numMIs * numMIs, 'uint16');
+xx = 0;
+yy = 0;
+lastdir = 1; % 0 L<---R 1 L--->R
+currdir = 1;
+%usage = zeros(numMIs,numMIs); debug
+for j=1:numMIs*numMIs
+    yy = ceil((j)/numMIs);
+    currdir = mod(yy, 2);
+    if lastdir == currdir
+        if currdir == 1
+            xx = xx + 1; % 1 odd - add
+        else
+            xx = xx - 1; % 0 even - subtract
+        end
+    end
+    %usage(yy,xx)=1;
+    %imshow(usage,[])
+    lastdir = currdir;
+    A =squeeze(double(LF(yy+1,xx+1, :, :, 1:3))); % pad views
+    %A(:, end+1, :) = 0; %one-pixel padding
+    A = A./(2^16 - 1).*(2^10 -1); %scaling to 10-bit precision
+    %clipping
+    A(A<0) = 0;
+    A(A>1023) = 1023;
+    %rounding to integer
+    A = double(uint16(A));
+    if RGB44410 == 1
+        PVS_RGB44410(:,:,:,j) = uint16(A);
+    end
+    if YUV44410 == 1
+        PVS_YUV44410(:,:,:,j) = rgb2ycbcrn(double(A) / (2^10-1),10);
+    end
+    if YUV4208 == 1
+        aux = rgb2ycbcrn(double(A) / (2^10-1),8);
+        aux(:, end+1, :,:) = 0; %one-pixel padding
+        PVS_YUV4208(:,j) = downsampleChroma(aux);
+        clear aux
+    end
+end
+
+if RGB44410 == 1
+    fileID = fopen( sprintf('%s/I%02d_PVSSERPENTINE_RGB44410.rgb',destinFolderRGB44410,i), 'w' );
+    fwrite(fileID, permute(PVS_RGB44410, [2 1 3 4]), 'uint16');
+    fclose(fileID);
+end
+if YUV44410 == 1
+    fileID = fopen( sprintf('%s/I%02d_PVSSERPENTINE_YUV44410.yuv',destinFolderYUV44410,i), 'w' );
+    fwrite(fileID, permute(PVS_YUV44410, [2 1 3 4]), 'uint16');
+    fclose(fileID);
+end
+if YUV4208 == 1
+	fileID = fopen( sprintf('%s/I%02d_PVSSERPENTINE_YUV4208.yuv',destinFolderYUV4208,i), 'w' );
+    for j=1:numMIs*numMIs
+        fwrite(fileID, PVS_YUV4208{1,j}', 'uint8');
+        fwrite(fileID, PVS_YUV4208{2,j}', 'uint8');
+        fwrite(fileID, PVS_YUV4208{3,j}', 'uint8');
+    end
+    fclose(fileID);
+end
+end
+
+function genPVSSERPENTINE_N(i, LF, RGB44410, YUV44410, YUV4208, numMIs)
+destinFolderRGB44410 = sprintf('PVSSERPENTINE_N%d/RGB44410/I%02d',numMIs,i);
+destinFolderYUV44410 = sprintf('PVSSERPENTINE_N%d/YUV44410/I%02d',numMIs,i);
+destinFolderYUV4208 = sprintf('PVSSERPENTINE_N%d/YUV4208/I%02d',numMIs,i);
+if RGB44410 == 1; mkdir(destinFolderRGB44410); end
+if YUV44410 == 1; mkdir(destinFolderYUV44410); end
+if YUV4208 == 1; mkdir(destinFolderYUV4208); end
+
+res=size(LF);
+H=res(3);
+W=res(4);
+
+% only 13x13 in this rep
+PVS_RGB44410 = zeros(H, W, 3,numMIs * numMIs, 'uint16');
+PVS_YUV44410 = zeros(H, W, 3,numMIs * numMIs, 'uint16');
+xx = 0;
+yy = 0;
+lastdir = 1; % 0 L<---R 1 L--->R
+currdir = 1;
+offset = (15 - numMIs)/2;
+%usage = zeros(numMIs,numMIs); debug
+for j=1:numMIs*numMIs
+    yy = ceil((j)/numMIs);
+    currdir = mod(yy, 2);
+    if lastdir == currdir
+        if currdir == 1
+            xx = xx + 1; % 1 odd - add
+        else
+            xx = xx - 1; % 0 even - subtract
+        end
+    end
+    %usage(yy,xx)=1;
+    %imshow(usage,[])
+    lastdir = currdir;
+    A =squeeze(double(LF(yy+offset,xx+offset, :, :, 1:3))); % pad views
+    %A(:, end+1, :) = 0; %one-pixel padding
+    A = A./(2^16 - 1).*(2^10 -1); %scaling to 10-bit precision
+    %clipping
+    A(A<0) = 0;
+    A(A>1023) = 1023;
+    %rounding to integer
+    A = double(uint16(A));
+    if RGB44410 == 1
+        PVS_RGB44410(:,:,:,j) = uint16(A);
+    end
+    if YUV44410 == 1
+        PVS_YUV44410(:,:,:,j) = rgb2ycbcrn(double(A) / (2^10-1),10);
+    end
+    if YUV4208 == 1
+        aux = rgb2ycbcrn(double(A) / (2^10-1),8);
+        aux(:, end+1, :,:) = 0; %one-pixel padding
+        PVS_YUV4208(:,j) = downsampleChroma(aux);
+        clear aux
+    end
+end
+
+if RGB44410 == 1
+    fileID = fopen( sprintf('%s/I%02d_PVSSERPENTINE_N%d_RGB44410.rgb',destinFolderRGB44410,i,numMIs), 'w' );
+    fwrite(fileID, permute(PVS_RGB44410, [2 1 3 4]), 'uint16');
+    fclose(fileID);
+end
+if YUV44410 == 1
+    fileID = fopen( sprintf('%s/I%02d_PVSSERPENTINE_N%d_YUV44410.yuv',destinFolderYUV44410,i,numMIs), 'w' );
+    fwrite(fileID, permute(PVS_YUV44410, [2 1 3 4]), 'uint16');
+    fclose(fileID);
+end
+if YUV4208 == 1
+	fileID = fopen( sprintf('%s/I%02d_PVSSERPENTINE_N%d_YUV4208.yuv',destinFolderYUV4208,i,numMIs), 'w' );
+    for j=1:numMIs*numMIs
+        fwrite(fileID, PVS_YUV4208{1,j}', 'uint8');
+        fwrite(fileID, PVS_YUV4208{2,j}', 'uint8');
+        fwrite(fileID, PVS_YUV4208{3,j}', 'uint8');
+    end
+    fclose(fileID);
+end
+end
 
 function [out] = downsampleChroma(in)
     out = cell(3,1);
